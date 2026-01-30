@@ -151,6 +151,24 @@ go test ./...
 JIRA_BASE_URL=... JIRA_EMAIL=... JIRA_API_TOKEN=... go run ./cmd/jira-worklog-dashboard
 ```
 
+## Releasing
+
+This repo publishes a Docker image to GitHub Container Registry (GHCR) when you push a git tag that starts with `v`.
+
+1) (Optional) update `CHANGELOG.md`
+2) Tag and push:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+3) Wait for GitHub Actions to finish (workflow: `Publish Docker image`)
+
+Images:
+- `ghcr.io/gghidoni/jira-worklog-dashboard:v0.1.0`
+- `ghcr.io/gghidoni/jira-worklog-dashboard:latest`
+
 ## Contributing
 
 See `CONTRIBUTING.md`.
