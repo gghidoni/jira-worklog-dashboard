@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>{{ .Title }}</title>
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div>
+          <div class="title">Jira worklog dashboard</div>
+          <div class="subtitle">Time spent from Jira worklogs, filterable by date, user, issue type, project.</div>
+        </div>
+        <div class="pill mono">Range: {{ .Filters.From }} → {{ .Filters.To }}</div>
+      </header>
+
+      <div class="grid">
+        <div class="card">
+          {{ if not .ConfigOK }}
+            <div class="alert err">
+              <div><b>Config missing</b></div>
+              <div class="hint mono">{{ join .ConfigProblems ", " }}</div>
+            </div>
+            <div class="hint">Set env vars and reload: <span class="mono">JIRA_BASE_URL</span>, <span class="mono">JIRA_EMAIL</span>, <span class="mono">JIRA_API_TOKEN</span>.</div>
+          {{ end }}
+
+          <form method="get" action="/">
+            <input type="hidden" name="run" value="1" />
+
+            <div class="row two" style="margin-top: 12px;">
+              <div>
+                <label for="from">From</label>
+                <input id="from" name="from" type="date" value="{{ .Filters.From }}" />
+              </div>
+              <div>
+                <label for="to">To</label>
+                <input id="to" name="to" type="date" value="{{ .Filters.To }}" />
+              </div>
+            </div>
+
+            <div class="row" style="margin-top: 12px;">
+              <div>
+                <label for="project">Project</label>
+                {{ if .FixedProjectKey }}
+                  <input id="project" type="text" value="{{ .FixedProjectKey }}" disabled />
+                  <div class="hint">Fixed project.</div>
+                {{ else }}
+                  <select id="project" name="project" multiple>
+                    {{ range .Projects }}
+                      <option value="{{ .Key }}" {{ if contains $.Filters.Projects .Key }}selected{{ end }}>{{ .Key }} — {{ .Name }}</option>
+                    {{ end }}
+                  </select>
+                  <div class="hint">Empty = all visible projects.</div>
+                {{ end }}
+              </div>
+            </div>
+
+            <div class="row" style="margin-top: 12px;">
+              <div>
+                <label for="board">Kanban board</label>
+                <select id="board" name="board">
+                  <option value="" {{ if eq $.Filters.BoardID "" }}selected{{ end }}>All boards</option>
+                  {{ range .Boards }}
+                    <option value="{{ .ID }}" {{ if eq (itoa .ID) $.Filters.BoardID }}selected{{ end }}>{{ .Name }}</option>
+                  {{ end }}
+                </select>
+                {{ if not .Boards }}
+                  <div class="hint">Optional. Set <span class="mono">FIXED_PROJECT_KEY</span> to populate boards.</div>
+                {{ else }}
+                  <div class="hint">Optional. Filters issues to the selected Jira board.</div>
+                {{ end }}
+              </div>
+            </div>
+
+            <div class="row" style="margin-top: 12px;">
+              <div>
+                <label>Issue types</label>
+                <div class="ms" data-ms>
+                  <button class="ms-btn" type="button" data-ms-btn>
+                    <span class="ms-btn-label">{{ if .Filters.IssueTypes }}{{ len .Filters.IssueTypes }} selected{{ else }}All{{ end }}</span>
+                    <span class="ms-caret" aria-hidden="true">▾</span>
+                  </button>
+                  <div class="ms-panel" data-ms-panel hidden>
+                    <div class="ms-actions">
+                      <input class="ms-search" type="text" placeholder="Search" data-ms-search />
+                      <button class="ms-mini" type="button" data-ms-all>Select all</button>
+                      <button class="ms-mini" type="button" data-ms-none>Clear</button>
+                    </div>
+                    <div class="ms-list" data-ms-list>
+                      {{ range .IssueTypes }}
+                        <label class="ms-item">
+                          <input type="checkbox" name="issuetype" value="{{ .Name }}" {{ if contains $.Filters.IssueTypes .Name }}checked{{ end }} />
+                          <span>{{ .Name }}</span>
+                        </label>
+                      {{ end }}
+                    </div>
+                  </div>
+                </div>
+                <div class="hint">Empty = all issue types.</div>
+              </div>
+            </div>
+
+            <div class="row" style="margin-top: 12px;">
+              <div>
+                <label>Users</label>
+                <div class="ms" data-ms>
+                  <button class="ms-btn" type="button" data-ms-btn {{ if not .AvailableUsers }}disabled{{ end }}>
+                    <span class="ms-btn-label">{{ if not .AvailableUsers }}Run to load{{ else if .Filters.Users }}{{ len .Filters.Users }} selected{{ else }}All{{ end }}</span>
+                    <span class="ms-caret" aria-hidden="true">▾</span>
+                  </button>
+                  <div class="ms-panel" data-ms-panel hidden>
+                    <div class="ms-actions">
+                      <input class="ms-search" type="text" placeholder="Search" data-ms-search />
+                      <button class="ms-mini" type="button" data-ms-all>Select all</button>
+                      <button class="ms-mini" type="button" data-ms-none>Clear</button>
+                    </div>
+                    <div class="ms-list" data-ms-list>
+                      {{ range .AvailableUsers }}
+                        <label class="ms-item">
+                          <input type="checkbox" name="user" value="{{ .AccountID }}" {{ if contains $.Filters.Users .AccountID }}checked{{ end }} />
+                          <span>{{ .DisplayName }}</span>
+                        </label>
+                      {{ end }}
+                    </div>
+                  </div>
+                </div>
+                <div class="hint">Empty = all users. Users list is built from worklogs in the selected range.</div>
+              </div>
+            </div>
+
+            <div class="row" style="margin-top: 12px;">
+              <button class="btn" type="submit">Run</button>
+            </div>
+          </form>
+
+        </div>
+
+        <div class="card">
+          {{ range .Errors }}
+            <div class="alert err" style="margin-bottom: 10px;">{{ . }}</div>
+          {{ end }}
+          {{ range .Warnings }}
+            <div class="alert warn" style="margin-bottom: 10px;">{{ . }}</div>
+          {{ end }}
+
+          <div class="kpi">
+            <div>
+              <div class="label">Total time spent</div>
+              <div class="value">{{ if .TotalHuman }}{{ .TotalHuman }}{{ else }}—{{ end }}</div>
+            </div>
+            <div class="pill mono">issues={{ .Stats.Issues }} worklogs={{ .Stats.Worklogs }} users={{ .Stats.Users }} dur={{ .Stats.Duration }}</div>
+          </div>
+
+          {{ if .Table.Columns }}
+            <div style="margin-top: 14px;">
+              <table>
+                <thead>
+                  <tr>
+                    {{ range .Table.Columns }}
+                      <th>{{ . }}</th>
+                    {{ end }}
+                  </tr>
+                </thead>
+                <tbody>
+                  {{ range .Table.Rows }}
+                    <tr>
+                      {{ range .Cells }}
+                        <td>
+                          {{ if .IconSrc }}
+                            <img class="it-icon" src="{{ .IconSrc }}" alt="{{ .IconAlt }}" loading="lazy" onerror="this.onerror=null;this.src='/static/icons/issue-default.svg';" />
+                          {{ end }}
+                          {{ if .Href }}
+                            <a class="mono" href="{{ .Href }}" target="_blank" rel="noreferrer">{{ .Text }}</a>
+                          {{ else }}
+                            {{ .Text }}
+                          {{ end }}
+                        </td>
+                      {{ end }}
+                    </tr>
+                  {{ end }}
+                </tbody>
+              </table>
+            </div>
+          {{ else }}
+            <div class="footer">Set filters and click Run.</div>
+          {{ end }}
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        function initMS(root) {
+          const btn = root.querySelector('[data-ms-btn]');
+          const panel = root.querySelector('[data-ms-panel]');
+          const search = root.querySelector('[data-ms-search]');
+          const list = root.querySelector('[data-ms-list]');
+          const allBtn = root.querySelector('[data-ms-all]');
+          const noneBtn = root.querySelector('[data-ms-none]');
+
+          if (!btn || !panel || !list) return;
+          if (btn.disabled) return;
+
+          const labelEl = btn.querySelector('.ms-btn-label');
+
+          function getChecks() {
+            return Array.from(list.querySelectorAll('input[type="checkbox"]'));
+          }
+
+          function updateLabel() {
+            const checks = getChecks();
+            const checked = checks.filter((c) => c.checked);
+            if (!labelEl) return;
+            if (checked.length === 0) {
+              labelEl.textContent = 'All';
+              return;
+            }
+            if (checked.length === 1) {
+              const item = checked[0].closest('.ms-item');
+              const text = item ? item.textContent.trim() : '1 selected';
+              labelEl.textContent = text;
+              return;
+            }
+            labelEl.textContent = checked.length + ' selected';
+          }
+
+          function open() {
+            panel.hidden = false;
+            root.classList.add('open');
+            updateLabel();
+            if (search) {
+              search.value = '';
+              filter('');
+              search.focus();
+            }
+          }
+
+          function close() {
+            panel.hidden = true;
+            root.classList.remove('open');
+            updateLabel();
+          }
+
+          function toggle() {
+            if (panel.hidden) open();
+            else close();
+          }
+
+          function filter(q) {
+            const qq = (q || '').toLowerCase();
+            const items = Array.from(list.querySelectorAll('.ms-item'));
+            items.forEach((it) => {
+              const t = it.textContent.toLowerCase();
+              it.style.display = t.indexOf(qq) >= 0 ? '' : 'none';
+            });
+          }
+
+          btn.addEventListener('click', toggle);
+          document.addEventListener('click', (e) => {
+            if (!root.classList.contains('open')) return;
+            if (root.contains(e.target)) return;
+            close();
+          });
+          document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && root.classList.contains('open')) close();
+          });
+
+          if (search) {
+            search.addEventListener('input', () => filter(search.value));
+          }
+
+          list.addEventListener('change', updateLabel);
+
+          if (allBtn) {
+            allBtn.addEventListener('click', () => {
+              getChecks().forEach((c) => (c.checked = true));
+              updateLabel();
+            });
+          }
+          if (noneBtn) {
+            noneBtn.addEventListener('click', () => {
+              getChecks().forEach((c) => (c.checked = false));
+              updateLabel();
+            });
+          }
+
+          updateLabel();
+        }
+
+        document.querySelectorAll('[data-ms]').forEach(initMS);
+      })();
+    </script>
+  </body>
+</html>
