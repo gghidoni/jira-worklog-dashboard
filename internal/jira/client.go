@@ -191,9 +191,10 @@ type Issue struct {
 }
 
 type IssueFields struct {
-	Summary   string    `json:"summary"`
-	Project   Project   `json:"project"`
-	IssueType IssueType `json:"issuetype"`
+	Summary                     string    `json:"summary"`
+	Project                     Project   `json:"project"`
+	IssueType                   IssueType `json:"issuetype"`
+	TimeOriginalEstimateSeconds int       `json:"timeoriginalestimate"`
 }
 
 type User struct {

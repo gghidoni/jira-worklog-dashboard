@@ -60,12 +60,31 @@
             <div class="row" style="margin-top: 12px;">
               <div>
                 <label for="board">Kanban board</label>
-                <select id="board" name="board">
-                  <option value="" {{ if eq $.Filters.BoardID "" }}selected{{ end }}>All boards</option>
-                  {{ range .Boards }}
-                    <option value="{{ .ID }}" {{ if eq (itoa .ID) $.Filters.BoardID }}selected{{ end }}>{{ .Name }}</option>
-                  {{ end }}
-                </select>
+                <div class="ms" data-ms data-ms-single>
+                  <button class="ms-btn" type="button" data-ms-btn>
+                    <span class="ms-btn-label">
+                      {{ if eq .Filters.BoardID "" }}All boards{{ else }}1 selected{{ end }}
+                    </span>
+                    <span class="ms-caret" aria-hidden="true">▾</span>
+                  </button>
+                  <div class="ms-panel" data-ms-panel hidden>
+                    <div class="ms-actions">
+                      <input class="ms-search" type="text" placeholder="Search" data-ms-search />
+                    </div>
+                    <div class="ms-list" data-ms-list>
+                      <label class="ms-item">
+                        <input type="radio" name="board" value="" {{ if eq $.Filters.BoardID "" }}checked{{ end }} />
+                        <span>All boards</span>
+                      </label>
+                      {{ range .Boards }}
+                        <label class="ms-item">
+                          <input type="radio" name="board" value="{{ .ID }}" {{ if eq (itoa .ID) $.Filters.BoardID }}checked{{ end }} />
+                          <span>{{ .Name }}</span>
+                        </label>
+                      {{ end }}
+                    </div>
+                  </div>
+                </div>
                 {{ if not .Boards }}
                   <div class="hint">Optional. Set <span class="mono">FIXED_PROJECT_KEY</span> to populate boards.</div>
                 {{ else }}
@@ -199,6 +218,7 @@
           const list = root.querySelector('[data-ms-list]');
           const allBtn = root.querySelector('[data-ms-all]');
           const noneBtn = root.querySelector('[data-ms-none]');
+          const isSingle = root.hasAttribute('data-ms-single');
 
           if (!btn || !panel || !list) return;
           if (btn.disabled) return;
@@ -206,7 +226,7 @@
           const labelEl = btn.querySelector('.ms-btn-label');
 
           function getChecks() {
-            return Array.from(list.querySelectorAll('input[type="checkbox"]'));
+            return Array.from(list.querySelectorAll('input[type="checkbox"], input[type="radio"]'));
           }
 
           function updateLabel() {
@@ -272,14 +292,17 @@
           }
 
           list.addEventListener('change', updateLabel);
+          if (isSingle) {
+            list.addEventListener('change', close);
+          }
 
-          if (allBtn) {
+          if (allBtn && !isSingle) {
             allBtn.addEventListener('click', () => {
               getChecks().forEach((c) => (c.checked = true));
               updateLabel();
             });
           }
-          if (noneBtn) {
+          if (noneBtn && !isSingle) {
             noneBtn.addEventListener('click', () => {
               getChecks().forEach((c) => (c.checked = false));
               updateLabel();

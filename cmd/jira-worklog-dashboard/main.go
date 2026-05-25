@@ -417,13 +417,13 @@ func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 		}
 		issues, searchWarn, err = a.jira.BoardIssues(ctx, boardID, jira.BoardIssuesRequest{
 			JQL:               jql,
-			Fields:            []string{"summary", "project", "issuetype"},
+			Fields:            []string{"summary", "project", "issuetype", "timeoriginalestimate"},
 			MaxResultsPerPage: 100,
 		})
 	} else {
 		issues, searchWarn, err = a.jira.SearchIssues(ctx, jira.SearchIssuesRequest{
 			JQL:               jql,
-			Fields:            []string{"summary", "project", "issuetype"},
+			Fields:            []string{"summary", "project", "issuetype", "timeoriginalestimate"},
 			MaxResultsPerPage: 100,
 		})
 	}
@@ -628,6 +628,7 @@ type WorklogItem struct {
 	ProjectName       string
 	IssueType         string
 	IssueTypeID       string
+	EstimateSeconds   int64
 	AuthorAccountID   string
 	AuthorDisplayName string
 	TimeSpentSeconds  int
@@ -689,6 +690,7 @@ func fetchWorklogs(
 					ProjectName:       iss.Fields.Project.Name,
 					IssueType:         iss.Fields.IssueType.Name,
 					IssueTypeID:       iss.Fields.IssueType.ID,
+					EstimateSeconds:   int64(iss.Fields.TimeOriginalEstimateSeconds),
 					AuthorAccountID:   wl.Author.AccountID,
 					AuthorDisplayName: wl.Author.DisplayName,
 					TimeSpentSeconds:  wl.TimeSpentSeconds,
@@ -831,6 +833,7 @@ func buildTable(jiraBaseURL string, items []WorklogItem) Table {
 		summary      string
 		issueType    string
 		issueTypeID  string
+		estimate     int64
 		secondsTotal int64
 	}
 	m := map[string]*agg{}
@@ -839,7 +842,13 @@ func buildTable(jiraBaseURL string, items []WorklogItem) Table {
 		key := it.IssueKey
 		a := m[key]
 		if a == nil {
-			a = &agg{issueKey: it.IssueKey, summary: it.IssueSummary, issueType: it.IssueType, issueTypeID: it.IssueTypeID}
+			a = &agg{
+				issueKey:    it.IssueKey,
+				summary:     it.IssueSummary,
+				issueType:   it.IssueType,
+				issueTypeID: it.IssueTypeID,
+				estimate:    it.EstimateSeconds,
+			}
 			m[key] = a
 		}
 		a.secondsTotal += int64(it.TimeSpentSeconds)
@@ -856,7 +865,13 @@ func buildTable(jiraBaseURL string, items []WorklogItem) Table {
 		if strings.TrimSpace(a.issueTypeID) != "" {
 			iconSrc = "/issuetype-icon?id=" + url.QueryEscape(a.issueTypeID)
 		}
-		rows = append(rows, row{cells: []Cell{{Text: a.issueKey, Href: href, IconSrc: iconSrc, IconAlt: a.issueType}, {Text: a.summary}, {Text: a.issueType}, {Text: humanDurationSeconds(a.secondsTotal)}}, seconds: a.secondsTotal})
+		rows = append(rows, row{cells: []Cell{
+			{Text: a.issueKey, Href: href, IconSrc: iconSrc, IconAlt: a.issueType},
+			{Text: a.summary},
+			{Text: a.issueType},
+			{Text: humanDurationOptional(a.estimate)},
+			{Text: humanDurationSeconds(a.secondsTotal)},
+		}, seconds: a.secondsTotal})
 	}
 
 	sort.Slice(rows, func(i, j int) bool {
@@ -868,7 +883,7 @@ func buildTable(jiraBaseURL string, items []WorklogItem) Table {
 	})
 
 	table := Table{}
-	table.Columns = []string{"Issue", "Summary", "Issue Type", "Total"}
+	table.Columns = []string{"Issue", "Summary", "Issue Type", "Estimated", "Total"}
 
 	for _, r := range rows {
 		table.Rows = append(table.Rows, TableRow{Cells: r.cells})
@@ -890,6 +905,13 @@ func humanDurationSeconds(seconds int64) string {
 		return fmt.Sprintf("%dh", h)
 	}
 	return fmt.Sprintf("%dh %dm", h, m)
+}
+
+func humanDurationOptional(seconds int64) string {
+	if seconds <= 0 {
+		return "—"
+	}
+	return humanDurationSeconds(seconds)
 }
 
 // ---- metadata cache ----

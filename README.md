@@ -21,6 +21,58 @@ This project is intentionally opinionated:
 - Jira Cloud
 - Docker (recommended) or Go (for local dev)
 
+## Quick Start (Local Go)
+
+Prereqs:
+- Go installed locally
+- Jira Cloud account
+- Atlassian API token
+
+1) Clone
+
+```bash
+git clone https://github.com/gghidoni/jira-worklog-dashboard.git
+cd jira-worklog-dashboard
+```
+
+2) Create env file
+
+```bash
+cp .env.example .env
+```
+
+3) Edit `.env`
+
+Required:
+- `JIRA_BASE_URL`
+- `JIRA_EMAIL`
+- `JIRA_API_TOKEN`
+
+Optional but useful:
+- `FIXED_PROJECT_KEY` to keep Jira queries smaller and populate boards faster
+- `LISTEN_ADDR` if `:8080` is already in use on your machine
+
+4) Run
+
+```bash
+GOCACHE=$(pwd)/.gocache go run ./cmd/jira-worklog-dashboard
+```
+
+Open:
+- `http://localhost:8080`
+
+Healthcheck:
+- `http://localhost:8080/healthz`
+
+If port `8080` is already in use:
+
+```bash
+LISTEN_ADDR=:18080 GOCACHE=$(pwd)/.gocache go run ./cmd/jira-worklog-dashboard
+```
+
+Then open:
+- `http://localhost:18080`
+
 ## Quick Start (Docker Compose)
 
 Prereqs:
@@ -47,6 +99,7 @@ Edit `.env` and set at least:
 
 Recommended:
 - `FIXED_PROJECT_KEY` (your project key) to enable board list and keep queries fast
+- `LISTEN_ADDR=:8080` unless you want the app to listen on a different port inside the container
 
 3) Run
 
@@ -59,6 +112,17 @@ Open:
 
 Healthcheck:
 - `http://localhost:8080/healthz`
+
+If host port `8080` is already in use, change the port mapping in `docker-compose.yml`.
+Example:
+
+```yaml
+ports:
+  - "18080:8080"
+```
+
+Then open:
+- `http://localhost:18080`
 
 ## Quick Start (Docker Run)
 
@@ -75,11 +139,43 @@ If you’re using a published image from GitHub Container Registry:
 docker run --rm -p 8080:8080 --env-file .env ghcr.io/gghidoni/jira-worklog-dashboard:latest
 ```
 
-## Jira Setup (API Token)
+## Jira Setup
+
+### Create the API token
 
 1) Create an API token in Atlassian:
    - https://id.atlassian.com/manage-profile/security/api-tokens
-2) Use your Jira account email + the token as credentials.
+2) Use a normal API token for Jira Cloud.
+3) Put your Jira account email in `JIRA_EMAIL`.
+4) Put the token in `JIRA_API_TOKEN`.
+
+Use a normal token, not a scoped token.
+
+Why:
+- this app calls your Jira tenant directly at `https://<your-site>.atlassian.net/rest/...`
+- it uses basic auth with `email + API token`
+- scoped tokens are intended for Atlassian's `api.atlassian.com/ex/...` APIs, which this app does not use
+
+### Find `JIRA_BASE_URL`
+
+`JIRA_BASE_URL` is the base URL of your Jira Cloud site.
+
+Example:
+- if your browser URL is `https://acme.atlassian.net/jira/software/projects/ABC/...`
+- then `JIRA_BASE_URL` is `https://acme.atlassian.net`
+
+Rules:
+- include `https://`
+- do not add a trailing slash
+- do not include `/jira`, `/browse`, `/rest`, or any other path
+
+Correct:
+- `https://acme.atlassian.net`
+
+Incorrect:
+- `https://acme.atlassian.net/`
+- `https://acme.atlassian.net/jira`
+- `acme.atlassian.net`
 
 Notes:
 - The service uses basic auth (email + API token) against Jira Cloud REST APIs.
@@ -103,8 +199,8 @@ Notes:
 All configuration is via environment variables:
 
 - `JIRA_BASE_URL` (required) e.g. `https://your-domain.atlassian.net`
-- `JIRA_EMAIL` (required)
-- `JIRA_API_TOKEN` (required)
+- `JIRA_EMAIL` (required) Jira account email used for the API token
+- `JIRA_API_TOKEN` (required) normal Atlassian API token
 
 - `LISTEN_ADDR` (default `:8080`)
 - `DASH_TZ` (default `Europe/Rome`) timezone used for date boundaries
@@ -128,7 +224,14 @@ The dashboard still works without selecting a board.
 
 - `401 Unauthorized` or `403 Forbidden` from Jira:
   - verify `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`
+  - verify you created a normal API token, not a scoped one
   - verify the Jira user can browse the project and issues
+
+- Browser cannot open the app on `localhost:8080`:
+  - verify the process actually started
+  - check `/healthz`
+  - if `8080` is already in use, set `LISTEN_ADDR=:18080` for local Go runs
+  - if using Docker Compose, change the host port mapping from `8080:8080` to `18080:8080`
 
 - Some users show as accountId instead of names:
   - Jira can hide user profile details depending on permissions/privacy
@@ -148,7 +251,8 @@ The dashboard still works without selecting a board.
 
 ```bash
 go test ./...
-JIRA_BASE_URL=... JIRA_EMAIL=... JIRA_API_TOKEN=... go run ./cmd/jira-worklog-dashboard
+cp .env.example .env
+GOCACHE=$(pwd)/.gocache go run ./cmd/jira-worklog-dashboard
 ```
 
 ## Releasing
