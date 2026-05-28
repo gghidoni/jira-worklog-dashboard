@@ -7,6 +7,11 @@
   --border: rgba(255, 255, 255, 0.14);
   --accent: #f2c14e;
   --accent-2: #e07a5f;
+  --issue-col: 10.66%;
+  --summary-col: 20.99%;
+  --type-col: 27.97%;
+  --estimate-col: 21.88%;
+  --total-col: 18.50%;
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
 }
@@ -317,6 +322,30 @@ table {
   font-size: 13px;
 }
 
+.issues-table {
+  table-layout: fixed;
+}
+
+.issues-table .col-issue {
+  width: var(--issue-col);
+}
+
+.issues-table .col-summary {
+  width: var(--summary-col);
+}
+
+.issues-table .col-type {
+  width: var(--type-col);
+}
+
+.issues-table .col-estimate {
+  width: var(--estimate-col);
+}
+
+.issues-table .col-total {
+  width: var(--total-col);
+}
+
 th, td {
   padding: 8px 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.10);
@@ -336,8 +365,8 @@ td:nth-child(2) {
 
 th:first-child,
 td:first-child {
-  width: 120px;
-  max-width: 120px;
+  width: var(--issue-col);
+  max-width: var(--issue-col);
   white-space: nowrap;
   padding-left: 14px;
   padding-right: 8px;
@@ -345,6 +374,41 @@ td:first-child {
 
 td:first-child a {
   white-space: nowrap;
+}
+
+.issues-table tbody tr:not(.parent-row):not(.subtask-row) td:first-child {
+  padding-left: 36px;
+}
+
+.issues-table tbody tr:not(.parent-row):not(.subtask-row) td:first-child .it-icon {
+  margin-left: 0;
+}
+
+.parent-row {
+  cursor: pointer;
+  position: relative;
+}
+
+.parent-row:hover td {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.parent-row td:first-child::before {
+  content: "▸";
+  display: inline-block;
+  width: 12px;
+  margin-right: 6px;
+  color: rgba(242, 193, 78, 0.78);
+  transition: transform 120ms ease, color 120ms ease;
+}
+
+.parent-row.expanded td:first-child::before {
+  transform: rotate(90deg);
+  color: var(--accent);
+}
+
+.parent-row.expanded td {
+  background: linear-gradient(180deg, rgba(242, 193, 78, 0.08), rgba(255, 255, 255, 0.02));
 }
 
 .it-icon {
@@ -358,6 +422,73 @@ td:first-child a {
 
 tr:last-child td {
   border-bottom: none;
+}
+
+.subtask-row {
+  position: relative;
+}
+
+.subtask-row td {
+  background: rgba(255, 255, 255, 0.015);
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.subtask-row td:first-child {
+  position: relative;
+  padding-left: 40px;
+}
+
+.subtask-row td:first-child::before {
+  content: "";
+  position: absolute;
+  left: 16px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(242, 193, 78, 0.28);
+  border-radius: 999px;
+}
+
+.subtask-row td:nth-child(2) {
+  font-size: 13px;
+}
+
+.subtask-row:hover td {
+  background: rgba(255, 255, 255, 0.028);
+}
+
+.worklog-row td {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.worklog-row td:first-child {
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+
+.worklog-row td:nth-child(2) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.subtask-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+@media (max-width: 820px) {
+  .subtask-row td:first-child::before {
+    left: 10px;
+  }
+
+  .subtask-row td:first-child {
+    padding-left: 18px;
+  }
 }
 
 a {

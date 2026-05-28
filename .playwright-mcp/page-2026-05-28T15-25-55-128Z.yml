@@ -1,0 +1,74 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: Jira worklog dashboard
+      - generic [ref=e6]: Time spent from Jira worklogs, filterable by date, user, issue type, project.
+    - generic [ref=e7]: "Range: 2026-05-22 → 2026-05-28"
+  - generic [ref=e8]:
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]:
+          - generic [ref=e13]: From
+          - textbox "From" [ref=e14]: 2026-05-22
+        - generic [ref=e15]:
+          - generic [ref=e16]: To
+          - textbox "To" [ref=e17]: 2026-05-28
+      - generic [ref=e19]:
+        - generic [ref=e20]: Project
+        - listbox "Project" [ref=e21]:
+          - option "TF — TL Frontend" [ref=e22]
+          - option "TL — TL Suite" [ref=e23]
+        - generic [ref=e24]: Empty = all visible projects.
+      - generic [ref=e26]:
+        - generic [ref=e27]: Kanban board
+        - button "All boards" [ref=e29] [cursor=pointer]:
+          - generic [ref=e30]: All boards
+          - generic [ref=e31]: ▾
+        - generic [ref=e32]: Optional. Set FIXED_PROJECT_KEY to populate boards.
+      - generic [ref=e34]:
+        - generic [ref=e35]: Issue types
+        - button "All" [ref=e37] [cursor=pointer]:
+          - generic [ref=e38]: All
+          - generic [ref=e39]: ▾
+        - generic [ref=e40]: Empty = all issue types.
+      - generic [ref=e42]:
+        - generic [ref=e43]: Users
+        - button "Gianni Ghidoni" [ref=e45] [cursor=pointer]:
+          - generic [ref=e46]: Gianni Ghidoni
+          - generic [ref=e47]: ▾
+        - generic [ref=e48]: Empty = all users. Users list is built from worklogs in the selected range.
+      - button "Run" [ref=e50] [cursor=pointer]
+    - generic [ref=e51]:
+      - generic [ref=e52]:
+        - generic [ref=e53]:
+          - generic [ref=e54]: Total time spent
+          - generic [ref=e55]: 4h 45m
+        - generic [ref=e56]: issues=18 worklogs=5 users=1 dur=1.2s
+      - table [ref=e58]:
+        - rowgroup [ref=e59]:
+          - row "Issue Summary Issue Type Estimated Total" [ref=e60]:
+            - columnheader "Issue" [ref=e61]
+            - columnheader "Summary" [ref=e62]
+            - columnheader "Issue Type" [ref=e63]
+            - columnheader "Estimated" [ref=e64]
+            - columnheader "Total" [ref=e65]
+        - rowgroup [ref=e66]:
+          - row "Maintenance TL-863 test 2 Maintenance 5h 3h" [ref=e67]:
+            - cell "Maintenance TL-863" [ref=e68]:
+              - img "Maintenance" [ref=e69]
+              - link "TL-863" [ref=e70] [cursor=pointer]:
+                - /url: https://rossotech.atlassian.net/browse/TL-863
+            - cell "test 2" [ref=e71]
+            - cell "Maintenance" [ref=e72]
+            - cell "5h" [ref=e73]
+            - cell "3h" [ref=e74]
+          - row "▸ Maintenance TL-857 TEST Maintenance 3h 30m 1h 45m" [ref=e75] [cursor=pointer]:
+            - cell "▸ Maintenance TL-857" [ref=e76]:
+              - text: ▸
+              - img "Maintenance" [ref=e77]
+              - link "TL-857" [ref=e78]:
+                - /url: https://rossotech.atlassian.net/browse/TL-857
+            - cell "TEST" [ref=e79]
+            - cell "Maintenance" [ref=e80]
+            - cell "3h 30m" [ref=e81]
+            - cell "1h 45m" [ref=e82]

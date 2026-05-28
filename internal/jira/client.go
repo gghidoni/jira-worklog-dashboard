@@ -190,11 +190,25 @@ type Issue struct {
 	Fields IssueFields `json:"fields"`
 }
 
-type IssueFields struct {
+type ParentIssue struct {
+	ID     string            `json:"id"`
+	Key    string            `json:"key"`
+	Fields ParentIssueFields `json:"fields"`
+}
+
+type ParentIssueFields struct {
 	Summary                     string    `json:"summary"`
 	Project                     Project   `json:"project"`
 	IssueType                   IssueType `json:"issuetype"`
 	TimeOriginalEstimateSeconds int       `json:"timeoriginalestimate"`
+}
+
+type IssueFields struct {
+	Summary                     string       `json:"summary"`
+	Project                     Project      `json:"project"`
+	IssueType                   IssueType    `json:"issuetype"`
+	TimeOriginalEstimateSeconds int          `json:"timeoriginalestimate"`
+	Parent                      *ParentIssue `json:"parent"`
 }
 
 type User struct {
@@ -207,11 +221,43 @@ type WorklogAuthor struct {
 	DisplayName string `json:"displayName"`
 }
 
+type ADFNode struct {
+	Type    string    `json:"type"`
+	Text    string    `json:"text"`
+	Content []ADFNode `json:"content"`
+}
+
 type Worklog struct {
 	ID               string        `json:"id"`
 	TimeSpentSeconds int           `json:"timeSpentSeconds"`
 	Started          string        `json:"started"`
 	Author           WorklogAuthor `json:"author"`
+	Comment          *ADFNode      `json:"comment"`
+}
+
+func (n *ADFNode) PlainText() string {
+	if n == nil {
+		return ""
+	}
+	var b strings.Builder
+	appendADFText(&b, *n)
+	return strings.TrimSpace(b.String())
+}
+
+func appendADFText(b *strings.Builder, n ADFNode) {
+	if n.Text != "" {
+		b.WriteString(n.Text)
+	}
+	if n.Type == "hardBreak" {
+		b.WriteByte('\n')
+	}
+	for _, child := range n.Content {
+		before := b.Len()
+		appendADFText(b, child)
+		if child.Type == "paragraph" && b.Len() > before {
+			b.WriteByte('\n')
+		}
+	}
 }
 
 type Board struct {

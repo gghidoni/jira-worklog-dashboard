@@ -341,7 +341,15 @@ type Table struct {
 }
 
 type TableRow struct {
-	Cells []Cell
+	Cells    []Cell
+	Detail   *TableRowDetail
+	ToggleID string
+	Class    string
+}
+
+type TableRowDetail struct {
+	Columns []string
+	Rows    []TableRow
 }
 
 type QueryStats struct {
@@ -417,13 +425,13 @@ func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 		}
 		issues, searchWarn, err = a.jira.BoardIssues(ctx, boardID, jira.BoardIssuesRequest{
 			JQL:               jql,
-			Fields:            []string{"summary", "project", "issuetype", "timeoriginalestimate"},
+			Fields:            []string{"summary", "project", "issuetype", "timeoriginalestimate", "parent"},
 			MaxResultsPerPage: 100,
 		})
 	} else {
 		issues, searchWarn, err = a.jira.SearchIssues(ctx, jira.SearchIssuesRequest{
 			JQL:               jql,
-			Fields:            []string{"summary", "project", "issuetype", "timeoriginalestimate"},
+			Fields:            []string{"summary", "project", "issuetype", "timeoriginalestimate", "parent"},
 			MaxResultsPerPage: 100,
 		})
 	}
@@ -433,6 +441,18 @@ func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Warnings = append(data.Warnings, searchWarn...)
+
+	issueMeta := buildIssueMetaMap(issues)
+	parentIssues, parentWarn, err := fetchMissingParentIssues(ctx, a.jira, issueMeta)
+	if err != nil {
+		data.Errors = append(data.Errors, fmt.Sprintf("Parent issue fetch failed: %v", err))
+		a.render(w, "index.html", data)
+		return
+	}
+	for _, iss := range parentIssues {
+		issueMeta[iss.Key] = issueMetaFromIssue(iss)
+	}
+	data.Warnings = append(data.Warnings, parentWarn...)
 
 	worklogsAll, wlWarn, err := fetchWorklogs(ctx, a.jira, issues, startedAfter, startedBefore, a.cfg.WorklogConcurrency)
 	if err != nil {
@@ -457,7 +477,7 @@ func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 	data.TotalSeconds = totalSeconds
 	data.TotalHuman = humanDurationSeconds(totalSeconds)
 	data.Stats = QueryStats{Issues: len(issues), Worklogs: len(worklogs), Users: len(buildAvailableUsers(worklogs)), Duration: time.Since(start).Truncate(10 * time.Millisecond).String()}
-	data.Table = buildTable(a.cfg.JiraBaseURL, worklogs)
+	data.Table = buildTable(a.cfg.JiraBaseURL, worklogs, issueMeta)
 
 	a.render(w, "index.html", data)
 }
@@ -489,6 +509,12 @@ func parseTemplates() (*template.Template, error) {
 	funcMap := template.FuncMap{
 		"join": strings.Join,
 		"itoa": strconv.Itoa,
+		"cell": func(cells []Cell, i int) Cell {
+			if i < 0 || i >= len(cells) {
+				return Cell{}
+			}
+			return cells[i]
+		},
 		"contains": func(list []string, v string) bool {
 			for _, it := range list {
 				if it == v {
@@ -629,9 +655,42 @@ type WorklogItem struct {
 	IssueType         string
 	IssueTypeID       string
 	EstimateSeconds   int64
+	ParentKey         string
+	Started           string
+	Comment           string
 	AuthorAccountID   string
 	AuthorDisplayName string
 	TimeSpentSeconds  int
+}
+
+type IssueMeta struct {
+	IssueKey        string
+	IssueSummary    string
+	ProjectKey      string
+	ProjectName     string
+	IssueType       string
+	IssueTypeID     string
+	EstimateSeconds int64
+	ParentKey       string
+}
+
+type subtaskAgg struct {
+	meta         IssueMeta
+	secondsTotal int64
+}
+
+type worklogAgg struct {
+	started           string
+	comment           string
+	authorDisplayName string
+	secondsTotal      int64
+}
+
+type parentAgg struct {
+	meta         IssueMeta
+	secondsTotal int64
+	subtasks     map[string]*subtaskAgg
+	worklogs     []worklogAgg
 }
 
 func fetchWorklogs(
@@ -691,6 +750,9 @@ func fetchWorklogs(
 					IssueType:         iss.Fields.IssueType.Name,
 					IssueTypeID:       iss.Fields.IssueType.ID,
 					EstimateSeconds:   int64(iss.Fields.TimeOriginalEstimateSeconds),
+					ParentKey:         parentKey(iss),
+					Started:           wl.Started,
+					Comment:           wl.Comment.PlainText(),
 					AuthorAccountID:   wl.Author.AccountID,
 					AuthorDisplayName: wl.Author.DisplayName,
 					TimeSpentSeconds:  wl.TimeSpentSeconds,
@@ -706,6 +768,77 @@ func fetchWorklogs(
 	wg.Wait()
 	if firstErr != nil {
 		return nil, warns, firstErr
+	}
+	return out, warns, nil
+}
+
+func buildIssueMetaMap(issues []jira.Issue) map[string]IssueMeta {
+	out := make(map[string]IssueMeta, len(issues))
+	for _, iss := range issues {
+		out[iss.Key] = issueMetaFromIssue(iss)
+	}
+	return out
+}
+
+func issueMetaFromIssue(iss jira.Issue) IssueMeta {
+	return IssueMeta{
+		IssueKey:        iss.Key,
+		IssueSummary:    iss.Fields.Summary,
+		ProjectKey:      iss.Fields.Project.Key,
+		ProjectName:     iss.Fields.Project.Name,
+		IssueType:       iss.Fields.IssueType.Name,
+		IssueTypeID:     iss.Fields.IssueType.ID,
+		EstimateSeconds: int64(iss.Fields.TimeOriginalEstimateSeconds),
+		ParentKey:       parentKey(iss),
+	}
+}
+
+func parentKey(iss jira.Issue) string {
+	if iss.Fields.Parent == nil {
+		return ""
+	}
+	return strings.TrimSpace(iss.Fields.Parent.Key)
+}
+
+func fetchMissingParentIssues(ctx context.Context, client *jira.Client, known map[string]IssueMeta) ([]jira.Issue, []string, error) {
+	missing := map[string]struct{}{}
+	for _, meta := range known {
+		if meta.ParentKey == "" {
+			continue
+		}
+		if _, ok := known[meta.ParentKey]; ok {
+			continue
+		}
+		missing[meta.ParentKey] = struct{}{}
+	}
+	if len(missing) == 0 {
+		return nil, nil, nil
+	}
+
+	keys := make([]string, 0, len(missing))
+	for key := range missing {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	var out []jira.Issue
+	var warns []string
+	for start := 0; start < len(keys); start += 50 {
+		end := start + 50
+		if end > len(keys) {
+			end = len(keys)
+		}
+		jql := fmt.Sprintf("issuekey in (%s)", joinJQLStrings(keys[start:end]))
+		issues, batchWarn, err := client.SearchIssues(ctx, jira.SearchIssuesRequest{
+			JQL:               jql,
+			Fields:            []string{"summary", "project", "issuetype", "timeoriginalestimate", "parent"},
+			MaxResultsPerPage: 100,
+		})
+		if err != nil {
+			return nil, warns, err
+		}
+		out = append(out, issues...)
+		warns = append(warns, batchWarn...)
 	}
 	return out, warns, nil
 }
@@ -827,68 +960,233 @@ func filterWorklogsByUsers(items []WorklogItem, users []string) []WorklogItem {
 	return out
 }
 
-func buildTable(jiraBaseURL string, items []WorklogItem) Table {
-	type agg struct {
-		issueKey     string
-		summary      string
-		issueType    string
-		issueTypeID  string
-		estimate     int64
-		secondsTotal int64
-	}
-	m := map[string]*agg{}
-
+func buildTable(jiraBaseURL string, items []WorklogItem, issueMeta map[string]IssueMeta) Table {
+	parentGroups := map[string]*parentAgg{}
 	for _, it := range items {
-		key := it.IssueKey
-		a := m[key]
-		if a == nil {
-			a = &agg{
-				issueKey:    it.IssueKey,
-				summary:     it.IssueSummary,
-				issueType:   it.IssueType,
-				issueTypeID: it.IssueTypeID,
-				estimate:    it.EstimateSeconds,
-			}
-			m[key] = a
+		groupKey := it.IssueKey
+		if it.ParentKey != "" {
+			groupKey = it.ParentKey
 		}
-		a.secondsTotal += int64(it.TimeSpentSeconds)
+
+		group := parentGroups[groupKey]
+		if group == nil {
+			meta := metaForKey(issueMeta, groupKey)
+			if meta.IssueKey == "" {
+				meta = IssueMeta{
+					IssueKey: groupKey,
+				}
+				if it.ParentKey == "" {
+					meta.IssueSummary = it.IssueSummary
+					meta.ProjectKey = it.ProjectKey
+					meta.ProjectName = it.ProjectName
+					meta.IssueType = it.IssueType
+					meta.IssueTypeID = it.IssueTypeID
+					meta.EstimateSeconds = it.EstimateSeconds
+				}
+			}
+			group = &parentAgg{meta: meta, subtasks: map[string]*subtaskAgg{}}
+			parentGroups[groupKey] = group
+		}
+		group.secondsTotal += int64(it.TimeSpentSeconds)
+
+		if it.ParentKey == "" && group.meta.EstimateSeconds == 0 {
+			group.meta.EstimateSeconds = it.EstimateSeconds
+		}
+
+		if it.ParentKey == "" && isAltroIssueType(group.meta.IssueType) {
+			group.worklogs = append(group.worklogs, worklogAgg{
+				started:           it.Started,
+				comment:           it.Comment,
+				authorDisplayName: it.AuthorDisplayName,
+				secondsTotal:      int64(it.TimeSpentSeconds),
+			})
+		}
+
+		if it.ParentKey == "" {
+			continue
+		}
+
+		subMeta := metaForKey(issueMeta, it.IssueKey)
+		if subMeta.IssueKey == "" {
+			subMeta = IssueMeta{
+				IssueKey:        it.IssueKey,
+				IssueSummary:    it.IssueSummary,
+				ProjectKey:      it.ProjectKey,
+				ProjectName:     it.ProjectName,
+				IssueType:       it.IssueType,
+				IssueTypeID:     it.IssueTypeID,
+				EstimateSeconds: it.EstimateSeconds,
+				ParentKey:       it.ParentKey,
+			}
+		}
+
+		sub := group.subtasks[it.IssueKey]
+		if sub == nil {
+			sub = &subtaskAgg{meta: subMeta}
+			group.subtasks[it.IssueKey] = sub
+			group.meta.EstimateSeconds += subMeta.EstimateSeconds
+		}
+		sub.secondsTotal += int64(it.TimeSpentSeconds)
 	}
 
 	type row struct {
-		cells   []Cell
-		seconds int64
+		tableRow TableRow
+		seconds  int64
 	}
-	rows := make([]row, 0, len(m))
-	for _, a := range m {
-		href := strings.TrimRight(jiraBaseURL, "/") + "/browse/" + a.issueKey
-		iconSrc := ""
-		if strings.TrimSpace(a.issueTypeID) != "" {
-			iconSrc = "/issuetype-icon?id=" + url.QueryEscape(a.issueTypeID)
+	rows := make([]row, 0, len(parentGroups))
+	for _, group := range parentGroups {
+		mainRow := TableRow{
+			Cells: []Cell{
+				issueCell(jiraBaseURL, group.meta.IssueKey, group.meta.IssueTypeID, group.meta.IssueType),
+				{Text: group.meta.IssueSummary},
+				{Text: group.meta.IssueType},
+				{Text: humanDurationOptional(group.meta.EstimateSeconds)},
+				{Text: humanDurationSeconds(group.secondsTotal)},
+			},
 		}
-		rows = append(rows, row{cells: []Cell{
-			{Text: a.issueKey, Href: href, IconSrc: iconSrc, IconAlt: a.issueType},
-			{Text: a.summary},
-			{Text: a.issueType},
-			{Text: humanDurationOptional(a.estimate)},
-			{Text: humanDurationSeconds(a.secondsTotal)},
-		}, seconds: a.secondsTotal})
+
+		if len(group.subtasks) > 0 {
+			mainRow.ToggleID = "subtasks-" + sanitizeDOMID(group.meta.IssueKey)
+			mainRow.Detail = &TableRowDetail{
+				Columns: []string{"Subtask", "Summary", "Issue Type", "Estimated", "Total"},
+				Rows:    buildSubtaskRows(jiraBaseURL, group.subtasks),
+			}
+		} else if isAltroIssueType(group.meta.IssueType) && len(group.worklogs) > 0 {
+			mainRow.ToggleID = "worklogs-" + sanitizeDOMID(group.meta.IssueKey)
+			mainRow.Detail = &TableRowDetail{
+				Columns: []string{"Worklog", "Note", "Author", "Estimated", "Total"},
+				Rows:    buildWorklogRows(group.worklogs),
+			}
+		}
+
+		rows = append(rows, row{tableRow: mainRow, seconds: group.secondsTotal})
 	}
 
 	sort.Slice(rows, func(i, j int) bool {
 		if rows[i].seconds == rows[j].seconds {
-			// Secondary: issue key.
-			return rows[i].cells[0].Text < rows[j].cells[0].Text
+			return rows[i].tableRow.Cells[0].Text < rows[j].tableRow.Cells[0].Text
 		}
 		return rows[i].seconds > rows[j].seconds
 	})
 
-	table := Table{}
-	table.Columns = []string{"Issue", "Summary", "Issue Type", "Estimated", "Total"}
-
+	table := Table{Columns: []string{"Issue", "Summary", "Issue Type", "Estimated", "Total"}}
 	for _, r := range rows {
-		table.Rows = append(table.Rows, TableRow{Cells: r.cells})
+		table.Rows = append(table.Rows, r.tableRow)
 	}
 	return table
+}
+
+func buildSubtaskRows(jiraBaseURL string, subtasks map[string]*subtaskAgg) []TableRow {
+	type sortable struct {
+		row     TableRow
+		seconds int64
+	}
+	rows := make([]sortable, 0, len(subtasks))
+	for _, sub := range subtasks {
+		rows = append(rows, sortable{
+			row: TableRow{
+				Cells: []Cell{
+					issueCell(jiraBaseURL, sub.meta.IssueKey, sub.meta.IssueTypeID, sub.meta.IssueType),
+					{Text: sub.meta.IssueSummary},
+					{Text: ""},
+					{Text: humanDurationOptional(sub.meta.EstimateSeconds)},
+					{Text: humanDurationSeconds(sub.secondsTotal)},
+				},
+			},
+			seconds: sub.secondsTotal,
+		})
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].seconds == rows[j].seconds {
+			return rows[i].row.Cells[0].Text < rows[j].row.Cells[0].Text
+		}
+		return rows[i].seconds > rows[j].seconds
+	})
+
+	out := make([]TableRow, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, r.row)
+	}
+	return out
+}
+
+func buildWorklogRows(worklogs []worklogAgg) []TableRow {
+	sort.Slice(worklogs, func(i, j int) bool {
+		ti := parseWorklogStarted(worklogs[i].started)
+		tj := parseWorklogStarted(worklogs[j].started)
+		if ti.Equal(tj) {
+			return worklogs[i].comment < worklogs[j].comment
+		}
+		return ti.Before(tj)
+	})
+
+	rows := make([]TableRow, 0, len(worklogs))
+	for _, wl := range worklogs {
+		rows = append(rows, TableRow{
+			Class: "worklog-row",
+			Cells: []Cell{
+				{Text: formatWorklogStarted(wl.started)},
+				{Text: fallbackString(wl.comment, "—")},
+				{Text: fallbackString(strings.TrimSpace(wl.authorDisplayName), "—")},
+				{Text: "—"},
+				{Text: humanDurationSeconds(wl.secondsTotal)},
+			},
+		})
+	}
+	return rows
+}
+
+func parseWorklogStarted(started string) time.Time {
+	if started == "" {
+		return time.Time{}
+	}
+	layouts := []string{time.RFC3339, "2006-01-02T15:04:05.000-0700", "2006-01-02T15:04:05.000Z0700"}
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, started); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
+}
+
+func formatWorklogStarted(started string) string {
+	t := parseWorklogStarted(started)
+	if t.IsZero() {
+		return "—"
+	}
+	return t.Format("02/01 15:04")
+}
+
+func fallbackString(s, def string) string {
+	if strings.TrimSpace(s) == "" {
+		return def
+	}
+	return s
+}
+
+func isAltroIssueType(name string) bool {
+	return strings.EqualFold(strings.TrimSpace(name), "Altro")
+}
+
+func metaForKey(meta map[string]IssueMeta, issueKey string) IssueMeta {
+	if meta == nil {
+		return IssueMeta{}
+	}
+	return meta[issueKey]
+}
+
+func issueCell(jiraBaseURL, issueKey, issueTypeID, issueType string) Cell {
+	href := strings.TrimRight(jiraBaseURL, "/") + "/browse/" + issueKey
+	iconSrc := ""
+	if strings.TrimSpace(issueTypeID) != "" {
+		iconSrc = "/issuetype-icon?id=" + url.QueryEscape(issueTypeID)
+	}
+	return Cell{Text: issueKey, Href: href, IconSrc: iconSrc, IconAlt: issueType}
+}
+
+func sanitizeDOMID(s string) string {
+	replacer := strings.NewReplacer(" ", "-", "/", "-", "\\", "-", ":", "-", ".", "-")
+	return replacer.Replace(strings.ToLower(strings.TrimSpace(s)))
 }
 
 func humanDurationSeconds(seconds int64) string {

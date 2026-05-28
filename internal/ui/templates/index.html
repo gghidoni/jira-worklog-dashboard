@@ -174,7 +174,14 @@
 
           {{ if .Table.Columns }}
             <div style="margin-top: 14px;">
-              <table>
+              <table class="issues-table">
+                <colgroup>
+                  <col class="col-issue" />
+                  <col class="col-summary" />
+                  <col class="col-type" />
+                  <col class="col-estimate" />
+                  <col class="col-total" />
+                </colgroup>
                 <thead>
                   <tr>
                     {{ range .Table.Columns }}
@@ -184,7 +191,7 @@
                 </thead>
                 <tbody>
                   {{ range .Table.Rows }}
-                    <tr>
+                    <tr class="{{ if .Detail }}parent-row{{ end }}" {{ if .ToggleID }}data-toggle-id="{{ .ToggleID }}"{{ end }}>
                       {{ range .Cells }}
                         <td>
                           {{ if .IconSrc }}
@@ -198,6 +205,25 @@
                         </td>
                       {{ end }}
                     </tr>
+                    {{ if .Detail }}
+                      {{ $parentID := .ToggleID }}
+                      {{ range .Detail.Rows }}
+                        <tr class="subtask-row{{ if .Class }} {{ .Class }}{{ end }}" data-parent-row="{{ $parentID }}" hidden>
+                          {{ range $idx, $cell := .Cells }}
+                            <td {{ if eq $idx 0 }}class="subtask-issue-cell"{{ end }}>
+                              {{ if $cell.IconSrc }}
+                                <img class="it-icon" src="{{ $cell.IconSrc }}" alt="{{ $cell.IconAlt }}" loading="lazy" onerror="this.onerror=null;this.src='/static/icons/issue-default.svg';" />
+                              {{ end }}
+                              {{ if $cell.Href }}
+                                <a class="mono" href="{{ $cell.Href }}" target="_blank" rel="noreferrer">{{ $cell.Text }}</a>
+                              {{ else }}
+                                {{ $cell.Text }}
+                              {{ end }}
+                            </td>
+                          {{ end }}
+                        </tr>
+                      {{ end }}
+                    {{ end }}
                   {{ end }}
                 </tbody>
               </table>
@@ -211,6 +237,18 @@
 
     <script>
       (function () {
+        document.querySelectorAll('.parent-row').forEach(function (row) {
+          row.addEventListener('click', function (event) {
+            if (event.target.closest('a')) return;
+            const key = row.getAttribute('data-toggle-id') || row.dataset.toggleId;
+            const detailRows = key ? document.querySelectorAll('[data-parent-row="' + key + '"]') : [];
+            if (!detailRows.length) return;
+            const shouldOpen = Array.from(detailRows).every(function (it) { return it.hidden; });
+            detailRows.forEach(function (it) { it.hidden = !shouldOpen; });
+            row.classList.toggle('expanded', shouldOpen);
+          });
+        });
+
         function initMS(root) {
           const btn = root.querySelector('[data-ms-btn]');
           const panel = root.querySelector('[data-ms-panel]');

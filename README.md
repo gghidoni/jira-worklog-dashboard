@@ -55,8 +55,14 @@ Optional but useful:
 4) Run
 
 ```bash
+set -a
+source .env
+set +a
 GOCACHE=$(pwd)/.gocache go run ./cmd/jira-worklog-dashboard
 ```
+
+Note:
+- `go run` does not load `.env` automatically, so the variables must be exported first.
 
 Open:
 - `http://localhost:8080`
@@ -67,6 +73,9 @@ Healthcheck:
 If port `8080` is already in use:
 
 ```bash
+set -a
+source .env
+set +a
 LISTEN_ADDR=:18080 GOCACHE=$(pwd)/.gocache go run ./cmd/jira-worklog-dashboard
 ```
 
