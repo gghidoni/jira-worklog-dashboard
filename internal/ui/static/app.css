@@ -1,5 +1,6 @@
 :root {
   --bg: #0f1b24;
+  --bg-top: #0b141c;
   --panel: rgba(255, 255, 255, 0.06);
   --panel-2: rgba(255, 255, 255, 0.09);
   --text: rgba(255, 255, 255, 0.92);
@@ -7,6 +8,33 @@
   --border: rgba(255, 255, 255, 0.14);
   --accent: #f2c14e;
   --accent-2: #e07a5f;
+  --accent-soft: rgba(242, 193, 78, 0.42);
+  --accent-soft-2: rgba(242, 193, 78, 0.35);
+  --accent-soft-3: rgba(242, 193, 78, 0.28);
+  --accent-soft-4: rgba(242, 193, 78, 0.22);
+  --accent-soft-5: rgba(242, 193, 78, 0.12);
+  --accent-soft-6: rgba(242, 193, 78, 0.45);
+  --accent-strong: rgba(242, 193, 78, 0.78);
+  --field-bg: rgba(0, 0, 0, 0.20);
+  --panel-solid: rgba(10, 16, 22, 0.92);
+  --panel-shadow: rgba(0, 0, 0, 0.38);
+  --hover-bg: rgba(255, 255, 255, 0.06);
+  --placeholder: rgba(255, 255, 255, 0.45);
+  --toggle-bg: rgba(10, 16, 22, 0.78);
+  --toggle-text: rgba(255, 255, 255, 0.92);
+  --glow-1: rgba(242, 193, 78, 0.18);
+  --glow-2: rgba(224, 122, 95, 0.16);
+  --glow-3: rgba(61, 90, 128, 0.20);
+  --pill-bg: rgba(0, 0, 0, 0.18);
+  --alert-bg: rgba(0, 0, 0, 0.22);
+  --table-bg: rgba(0, 0, 0, 0.16);
+  --table-head-bg: rgba(255, 255, 255, 0.04);
+  --table-row-border: rgba(255, 255, 255, 0.10);
+  --parent-row-hover: rgba(255, 255, 255, 0.045);
+  --parent-row-expanded: linear-gradient(180deg, rgba(242, 193, 78, 0.08), rgba(255, 255, 255, 0.02));
+  --subtask-row-bg: rgba(255, 255, 255, 0.015);
+  --subtask-row-hover: rgba(255, 255, 255, 0.028);
+  --subtask-rail: rgba(242, 193, 78, 0.28);
   --issue-col: 10.66%;
   --summary-col: 20.99%;
   --type-col: 27.97%;
@@ -14,6 +42,45 @@
   --total-col: 18.50%;
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+[data-theme="light"] {
+  --bg: #eef2f0;
+  --bg-top: #fbfcf8;
+  --panel: rgba(255, 255, 255, 0.82);
+  --panel-2: rgba(255, 255, 255, 0.92);
+  --text: #1b2a33;
+  --muted: rgba(27, 42, 51, 0.68);
+  --border: rgba(27, 42, 51, 0.14);
+  --accent: #2f8f83;
+  --accent-2: #3d5a80;
+  --accent-soft: rgba(47, 143, 131, 0.42);
+  --accent-soft-2: rgba(47, 143, 131, 0.35);
+  --accent-soft-3: rgba(47, 143, 131, 0.28);
+  --accent-soft-4: rgba(47, 143, 131, 0.22);
+  --accent-soft-5: rgba(47, 143, 131, 0.12);
+  --accent-soft-6: rgba(47, 143, 131, 0.45);
+  --accent-strong: rgba(47, 143, 131, 0.78);
+  --field-bg: rgba(255, 255, 255, 0.82);
+  --panel-solid: rgba(255, 255, 255, 0.98);
+  --panel-shadow: rgba(27, 42, 51, 0.12);
+  --hover-bg: rgba(27, 42, 51, 0.05);
+  --placeholder: rgba(27, 42, 51, 0.38);
+  --toggle-bg: rgba(255, 255, 255, 0.92);
+  --toggle-text: #1b2a33;
+  --glow-1: rgba(47, 143, 131, 0.18);
+  --glow-2: rgba(61, 90, 128, 0.14);
+  --glow-3: rgba(115, 171, 160, 0.14);
+  --pill-bg: rgba(255, 255, 255, 0.72);
+  --alert-bg: rgba(255, 255, 255, 0.82);
+  --table-bg: rgba(255, 255, 255, 0.72);
+  --table-head-bg: rgba(27, 42, 51, 0.06);
+  --table-row-border: rgba(27, 42, 51, 0.10);
+  --parent-row-hover: rgba(27, 42, 51, 0.05);
+  --parent-row-expanded: linear-gradient(180deg, rgba(47, 143, 131, 0.18), rgba(255, 255, 255, 0.04));
+  --subtask-row-bg: rgba(27, 42, 51, 0.035);
+  --subtask-row-hover: rgba(27, 42, 51, 0.06);
+  --subtask-rail: rgba(47, 143, 131, 0.30);
 }
 
 * { box-sizing: border-box; }
@@ -27,10 +94,10 @@ body {
   font-family: var(--sans);
   color: var(--text);
   background:
-    radial-gradient(900px 600px at 15% 10%, rgba(242, 193, 78, 0.18), transparent 60%),
-    radial-gradient(900px 600px at 85% 20%, rgba(224, 122, 95, 0.16), transparent 60%),
-    radial-gradient(1100px 700px at 55% 90%, rgba(61, 90, 128, 0.20), transparent 60%),
-    linear-gradient(180deg, #0b141c, var(--bg));
+    radial-gradient(900px 600px at 15% 10%, var(--glow-1), transparent 60%),
+    radial-gradient(900px 600px at 85% 20%, var(--glow-2), transparent 60%),
+    radial-gradient(1100px 700px at 55% 90%, var(--glow-3), transparent 60%),
+    linear-gradient(180deg, var(--bg-top), var(--bg));
 }
 
 .wrap {
@@ -52,6 +119,50 @@ header {
   align-items: flex-end;
   gap: 18px;
   padding: 8px 2px 18px;
+}
+
+.header-meta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--toggle-bg);
+  color: var(--toggle-text);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 24px var(--panel-shadow);
+  cursor: pointer;
+  font: inherit;
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent-soft);
+}
+
+.theme-toggle-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+@media (max-width: 700px) {
+  header {
+    align-items: flex-start;
+  }
+
+  .header-meta {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 
 .title {
@@ -101,7 +212,7 @@ select {
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.20);
+  background: var(--field-bg);
   color: var(--text);
   outline: none;
 }
@@ -115,7 +226,7 @@ select {
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.20);
+  background: var(--field-bg);
   color: var(--text);
   display: flex;
   align-items: center;
@@ -131,7 +242,7 @@ select {
 }
 
 .ms.open .ms-btn {
-  border-color: rgba(242, 193, 78, 0.35);
+  border-color: var(--accent-soft-2);
 }
 
 .ms-btn-label {
@@ -141,7 +252,7 @@ select {
 }
 
 .ms-caret {
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -152,10 +263,10 @@ select {
   width: 100%;
   z-index: 30;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(10, 16, 22, 0.92);
+  border: 1px solid var(--border);
+  background: var(--panel-solid);
   backdrop-filter: blur(10px);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.38);
+  box-shadow: 0 12px 30px var(--panel-shadow);
   padding: 10px;
 }
 
@@ -169,8 +280,8 @@ select {
   flex: 1;
   padding: 8px 10px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(0, 0, 0, 0.20);
+  border: 1px solid var(--border);
+  background: var(--field-bg);
   color: var(--text);
   outline: none;
 }
@@ -178,16 +289,16 @@ select {
 .ms-mini {
   padding: 8px 10px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
   cursor: pointer;
   font-size: 12px;
   white-space: nowrap;
 }
 
 .ms-mini:hover {
-  border-color: rgba(255, 255, 255, 0.22);
+  border-color: var(--accent-soft-3);
 }
 
 .ms-list {
@@ -208,7 +319,7 @@ select {
 }
 
 .ms-item:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--hover-bg);
 }
 
 .ms-item span {
@@ -223,7 +334,7 @@ select[multiple] {
 }
 
 input[type="text"]::placeholder {
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--placeholder);
 }
 
 .row {
@@ -246,14 +357,14 @@ input[type="text"]::placeholder {
   padding: 10px 14px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.16);
-  background: linear-gradient(180deg, rgba(242, 193, 78, 0.22), rgba(242, 193, 78, 0.12));
+  background: linear-gradient(180deg, var(--accent-soft-4), var(--accent-soft-5));
   color: var(--text);
   cursor: pointer;
   font-weight: 650;
 }
 
 .btn:hover {
-  border-color: rgba(242, 193, 78, 0.40);
+  border-color: var(--accent-soft);
 }
 
 .hint {
@@ -267,7 +378,7 @@ input[type="text"]::placeholder {
   align-items: center;
   gap: 8px;
   border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.18);
+  background: var(--pill-bg);
   border-radius: 999px;
   padding: 7px 10px;
   color: var(--muted);
@@ -282,7 +393,7 @@ input[type="text"]::placeholder {
   border-radius: 12px;
   border: 1px solid var(--border);
   padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.22);
+  background: var(--alert-bg);
 }
 
 .alert.err {
@@ -290,7 +401,7 @@ input[type="text"]::placeholder {
 }
 
 .alert.warn {
-  border-color: rgba(242, 193, 78, 0.45);
+  border-color: var(--accent-soft-6);
 }
 
 .kpi {
@@ -318,7 +429,7 @@ table {
   overflow: hidden;
   border-radius: 12px;
   border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.16);
+  background: var(--table-bg);
   font-size: 13px;
 }
 
@@ -348,7 +459,7 @@ table {
 
 th, td {
   padding: 8px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+  border-bottom: 1px solid var(--table-row-border);
   vertical-align: top;
 }
 
@@ -356,7 +467,7 @@ th {
   text-align: left;
   font-size: 11px;
   color: var(--muted);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--table-head-bg);
 }
 
 td:nth-child(2) {
@@ -390,25 +501,26 @@ td:first-child a {
 }
 
 .parent-row:hover td {
-  background: rgba(255, 255, 255, 0.045);
+  background: var(--parent-row-hover);
 }
 
 .parent-row td:first-child::before {
   content: "▸";
   display: inline-block;
-  width: 12px;
-  margin-right: 6px;
-  color: rgba(242, 193, 78, 0.78);
-  transition: transform 120ms ease, color 120ms ease;
+  width: 18px;
+  margin-right: 0;
+  color: var(--accent-strong);
+  font-size: 18px;
+  line-height: 1;
+  vertical-align: -1px;
 }
 
 .parent-row.expanded td:first-child::before {
-  transform: rotate(90deg);
   color: var(--accent);
 }
 
 .parent-row.expanded td {
-  background: linear-gradient(180deg, rgba(242, 193, 78, 0.08), rgba(255, 255, 255, 0.02));
+  background: var(--parent-row-expanded);
 }
 
 .it-icon {
@@ -429,7 +541,7 @@ tr:last-child td {
 }
 
 .subtask-row td {
-  background: rgba(255, 255, 255, 0.015);
+  background: var(--subtask-row-bg);
   padding-top: 8px;
   padding-bottom: 8px;
 }
@@ -446,7 +558,7 @@ tr:last-child td {
   top: 0;
   bottom: 0;
   width: 2px;
-  background: rgba(242, 193, 78, 0.28);
+  background: var(--subtask-rail);
   border-radius: 999px;
 }
 
@@ -455,7 +567,7 @@ tr:last-child td {
 }
 
 .subtask-row:hover td {
-  background: rgba(255, 255, 255, 0.028);
+  background: var(--subtask-row-hover);
 }
 
 .worklog-row td {

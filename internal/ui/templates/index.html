@@ -4,6 +4,21 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>{{ .Title }}</title>
+    <script>
+      (function () {
+        const key = 'jwd-theme';
+        let stored = null;
+        try {
+          stored = window.localStorage.getItem(key);
+        } catch (err) {
+          stored = null;
+        }
+        const theme = stored === 'light' || stored === 'dark'
+          ? stored
+          : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
     <link rel="stylesheet" href="/static/app.css" />
   </head>
   <body>
@@ -13,7 +28,12 @@
           <div class="title">Jira worklog dashboard</div>
           <div class="subtitle">Time spent from Jira worklogs, filterable by date, user, issue type, project.</div>
         </div>
-        <div class="pill mono">Range: {{ .Filters.From }} → {{ .Filters.To }}</div>
+        <div class="header-meta">
+          <div class="pill mono">Range: {{ .Filters.From }} → {{ .Filters.To }}</div>
+          <button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to light mode" title="Switch theme">
+            <span class="theme-toggle-icon" aria-hidden="true">🌙</span>
+          </button>
+        </div>
       </header>
 
       <div class="grid">
@@ -237,6 +257,29 @@
 
     <script>
       (function () {
+        const themeToggle = document.querySelector('[data-theme-toggle]');
+
+        function applyTheme(theme) {
+          const nextTheme = theme === 'light' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', nextTheme);
+          if (!themeToggle) return;
+          const icon = themeToggle.querySelector('.theme-toggle-icon');
+          const isLight = nextTheme === 'light';
+          if (icon) icon.textContent = isLight ? '☀️' : '🌙';
+          themeToggle.setAttribute('aria-label', isLight ? 'Switch to dark mode' : 'Switch to light mode');
+        }
+
+        if (themeToggle) {
+          applyTheme(document.documentElement.getAttribute('data-theme'));
+          themeToggle.addEventListener('click', function () {
+            const nextTheme = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+            try {
+              window.localStorage.setItem('jwd-theme', nextTheme);
+            } catch (err) {}
+            applyTheme(nextTheme);
+          });
+        }
+
         document.querySelectorAll('.parent-row').forEach(function (row) {
           row.addEventListener('click', function (event) {
             if (event.target.closest('a')) return;
