@@ -148,6 +148,25 @@ If you’re using a published image from GitHub Container Registry:
 docker run --rm -p 8080:8080 --env-file .env ghcr.io/gghidoni/jira-worklog-dashboard:latest
 ```
 
+## Deploy On The Stage VM
+
+The stage VM uses this repository as a Git working copy at:
+- `/home/ubuntu/jiraworklog`
+
+From inside that directory, deploy with:
+
+```bash
+DEPLOY_BASIC_AUTH_PASS='your-current-basic-auth-password' ./scripts/deploy-stage.sh
+```
+
+What it does:
+- verifies you are inside the `jiraworklog` Git working copy
+- runs `git pull --ff-only`
+- rebuilds and restarts the Docker stack on port `8082`
+- checks `/healthz` through the local Basic Auth protected endpoint
+
+If you run it outside the `jiraworklog` working copy, it exits with an error.
+
 ## Jira Setup
 
 ### Create the API token
