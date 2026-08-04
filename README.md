@@ -14,6 +14,7 @@ This project is intentionally opinionated:
 - Web UI (no frontend build step)
 - Filters: date range (max 90 days), Kanban board, issue types, users
 - Results: table grouped by issue with total time spent
+- Excel export for the current filters, with a summary and one sheet per user
 - Works well in LAN / homelab setups (single container)
 
 ## Requirements
@@ -221,6 +222,10 @@ Notes:
 - Date range defaults to last 7 days.
 - Users list is built from worklogs found in the current selection (range + other filters).
 - “Kanban board” filter is optional; if set, issues are taken from that board.
+- “Download Excel” uses the current date, board, issue type, project and user filters.
+- Excel times are decimal hours. Task rows contain the estimate and total; described
+  worklogs are shown below the task, while undescribed worklogs are grouped into one row.
+  If a task only has undescribed worklogs, no detail rows are created.
 
 ## Configuration
 

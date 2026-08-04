@@ -17,11 +17,12 @@ import (
 )
 
 type Config struct {
-	BaseURL  string
-	Email    string
-	APIToken string
-	Timeout  time.Duration
-	Logger   *slog.Logger
+	BaseURL    string
+	Email      string
+	APIToken   string
+	Timeout    time.Duration
+	Logger     *slog.Logger
+	HTTPClient *http.Client
 }
 
 type Client struct {
@@ -41,11 +42,15 @@ func NewClient(cfg Config) *Client {
 	if timeout == 0 {
 		timeout = 30 * time.Second
 	}
+	httpClient := cfg.HTTPClient
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: timeout}
+	}
 	return &Client{
 		baseURL: strings.TrimRight(cfg.BaseURL, "/"),
 		email:   cfg.Email,
 		token:   cfg.APIToken,
-		http:    &http.Client{Timeout: timeout},
+		http:    httpClient,
 		logger:  l,
 	}
 }

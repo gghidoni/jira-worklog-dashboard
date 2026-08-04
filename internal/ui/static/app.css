@@ -367,6 +367,17 @@ input[type="text"]::placeholder {
   border-color: var(--accent-soft);
 }
 
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.btn-secondary {
+  background: transparent;
+  border-color: var(--accent-soft);
+}
+
 .hint {
   margin-top: 8px;
   color: var(--muted);

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/gghidoni/jira-worklog-dashboard/internal/jira"
+	"github.com/gghidoni/jira-worklog-dashboard/internal/report"
 	"github.com/gghidoni/jira-worklog-dashboard/internal/ui"
 )
 
@@ -75,6 +76,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", app.handleIndex)
+	mux.HandleFunc("GET /export.xlsx", app.handleExportExcel)
 	mux.HandleFunc("GET /healthz", app.handleHealth)
 	mux.HandleFunc("GET /static/{path...}", app.handleStatic)
 	mux.HandleFunc("GET /issuetype-icon", app.handleIssueTypeIcon)
@@ -405,62 +407,17 @@ func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	startedAfter, startedBefore := epochRangeInclusive(fromDate, toDate)
-
-	jql, jqlWarnings := buildJQL(filters, fromDate, toDate)
-	data.Warnings = append(data.Warnings, jqlWarnings...)
-
 	start := time.Now()
-	var (
-		issues     []jira.Issue
-		searchWarn []string
-		err        error
-	)
-	if filters.BoardID != "" {
-		boardID, err2 := strconv.Atoi(filters.BoardID)
-		if err2 != nil {
-			data.Errors = append(data.Errors, "Invalid board id")
-			a.render(w, "index.html", data)
-			return
-		}
-		issues, searchWarn, err = a.jira.BoardIssues(ctx, boardID, jira.BoardIssuesRequest{
-			JQL:               jql,
-			Fields:            []string{"summary", "project", "issuetype", "timeoriginalestimate", "parent"},
-			MaxResultsPerPage: 100,
-		})
-	} else {
-		issues, searchWarn, err = a.jira.SearchIssues(ctx, jira.SearchIssuesRequest{
-			JQL:               jql,
-			Fields:            []string{"summary", "project", "issuetype", "timeoriginalestimate", "parent"},
-			MaxResultsPerPage: 100,
-		})
-	}
+	queryResult, err := a.queryWorklogs(ctx, filters, fromDate, toDate)
 	if err != nil {
-		data.Errors = append(data.Errors, fmt.Sprintf("Jira search failed: %v", err))
+		data.Errors = append(data.Errors, err.Error())
 		a.render(w, "index.html", data)
 		return
 	}
-	data.Warnings = append(data.Warnings, searchWarn...)
-
-	issueMeta := buildIssueMetaMap(issues)
-	parentIssues, parentWarn, err := fetchMissingParentIssues(ctx, a.jira, issueMeta)
-	if err != nil {
-		data.Errors = append(data.Errors, fmt.Sprintf("Parent issue fetch failed: %v", err))
-		a.render(w, "index.html", data)
-		return
-	}
-	for _, iss := range parentIssues {
-		issueMeta[iss.Key] = issueMetaFromIssue(iss)
-	}
-	data.Warnings = append(data.Warnings, parentWarn...)
-
-	worklogsAll, wlWarn, err := fetchWorklogs(ctx, a.jira, issues, startedAfter, startedBefore, a.cfg.WorklogConcurrency)
-	if err != nil {
-		data.Errors = append(data.Errors, fmt.Sprintf("Worklog fetch failed: %v", err))
-		a.render(w, "index.html", data)
-		return
-	}
-	data.Warnings = append(data.Warnings, wlWarn...)
+	issues := queryResult.Issues
+	issueMeta := queryResult.IssueMeta
+	worklogsAll := queryResult.Worklogs
+	data.Warnings = append(data.Warnings, queryResult.Warnings...)
 
 	availableUsers := buildAvailableUsers(worklogsAll)
 	availableUsers = ensureUsersPresent(availableUsers, filters.Users)
@@ -480,6 +437,118 @@ func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 	data.Table = buildTable(a.cfg.JiraBaseURL, worklogs, issueMeta)
 
 	a.render(w, "index.html", data)
+}
+
+type worklogQueryResult struct {
+	Issues    []jira.Issue
+	IssueMeta map[string]IssueMeta
+	Worklogs  []WorklogItem
+	Warnings  []string
+}
+
+func (a *App) queryWorklogs(ctx context.Context, filters Filters, fromDate, toDate time.Time) (worklogQueryResult, error) {
+	var result worklogQueryResult
+	startedAfter, startedBefore := epochRangeInclusive(fromDate, toDate)
+	jql, jqlWarnings := buildJQL(filters, fromDate, toDate)
+	result.Warnings = append(result.Warnings, jqlWarnings...)
+
+	var (
+		issues     []jira.Issue
+		searchWarn []string
+		err        error
+	)
+	if filters.BoardID != "" {
+		boardID, parseErr := strconv.Atoi(filters.BoardID)
+		if parseErr != nil {
+			return result, errors.New("Invalid board id")
+		}
+		issues, searchWarn, err = a.jira.BoardIssues(ctx, boardID, jira.BoardIssuesRequest{
+			JQL:               jql,
+			Fields:            []string{"summary", "project", "issuetype", "timeoriginalestimate", "parent"},
+			MaxResultsPerPage: 100,
+		})
+	} else {
+		issues, searchWarn, err = a.jira.SearchIssues(ctx, jira.SearchIssuesRequest{
+			JQL:               jql,
+			Fields:            []string{"summary", "project", "issuetype", "timeoriginalestimate", "parent"},
+			MaxResultsPerPage: 100,
+		})
+	}
+	if err != nil {
+		return result, fmt.Errorf("Jira search failed: %w", err)
+	}
+	result.Issues = issues
+	result.Warnings = append(result.Warnings, searchWarn...)
+
+	issueMeta := buildIssueMetaMap(issues)
+	parentIssues, parentWarn, err := fetchMissingParentIssues(ctx, a.jira, issueMeta)
+	if err != nil {
+		return result, fmt.Errorf("Parent issue fetch failed: %w", err)
+	}
+	for _, issue := range parentIssues {
+		issueMeta[issue.Key] = issueMetaFromIssue(issue)
+	}
+	result.IssueMeta = issueMeta
+	result.Warnings = append(result.Warnings, parentWarn...)
+
+	worklogs, worklogWarn, err := fetchWorklogs(ctx, a.jira, issues, startedAfter, startedBefore, a.cfg.WorklogConcurrency)
+	if err != nil {
+		return result, fmt.Errorf("Worklog fetch failed: %w", err)
+	}
+	result.Worklogs = worklogs
+	result.Warnings = append(result.Warnings, worklogWarn...)
+	return result, nil
+}
+
+func (a *App) handleExportExcel(w http.ResponseWriter, r *http.Request) {
+	if problems := validateConfig(a.cfg); len(problems) > 0 {
+		http.Error(w, "Jira is not configured", http.StatusBadRequest)
+		return
+	}
+	filters := parseFilters(r, a.tz)
+	if a.cfg.FixedProjectKey != "" {
+		filters.Projects = []string{a.cfg.FixedProjectKey}
+	}
+	fromDate, toDate, dateErrors := parseDateRange(filters.From, filters.To, a.tz, a.cfg.MaxRangeDays)
+	if len(dateErrors) > 0 {
+		http.Error(w, strings.Join(dateErrors, "; "), http.StatusBadRequest)
+		return
+	}
+	queryResult, err := a.queryWorklogs(r.Context(), filters, fromDate, toDate)
+	if err != nil {
+		a.logger.Error("excel export query failed", "err", err)
+		http.Error(w, "Unable to read Jira data for the Excel report", http.StatusBadGateway)
+		return
+	}
+	worklogs := filterWorklogsByUsers(queryResult.Worklogs, filters.Users)
+	reportWorklogs := make([]report.Worklog, 0, len(worklogs))
+	for _, worklog := range worklogs {
+		reportWorklogs = append(reportWorklogs, report.Worklog{
+			IssueKey:          worklog.IssueKey,
+			IssueSummary:      worklog.IssueSummary,
+			IssueURL:          strings.TrimRight(a.cfg.JiraBaseURL, "/") + "/browse/" + worklog.IssueKey,
+			EstimateSeconds:   worklog.EstimateSeconds,
+			Started:           worklog.Started,
+			Comment:           worklog.Comment,
+			AuthorAccountID:   worklog.AuthorAccountID,
+			AuthorDisplayName: worklog.AuthorDisplayName,
+			TimeSpentSeconds:  worklog.TimeSpentSeconds,
+		})
+	}
+	contents, err := report.BuildExcel(report.Options{From: fromDate, To: toDate, Location: a.tz}, reportWorklogs)
+	if err != nil {
+		a.logger.Error("excel export build failed", "err", err)
+		http.Error(w, "Unable to generate the Excel report", http.StatusInternalServerError)
+		return
+	}
+	filename := fmt.Sprintf("Jira_Worklog_%s_%s.xlsx", filters.From, filters.To)
+	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write(contents); err != nil {
+		a.logger.Warn("excel export response failed", "err", err)
+	}
 }
 
 func (a *App) render(w http.ResponseWriter, name string, data PageData) {
