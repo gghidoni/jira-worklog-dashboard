@@ -42,6 +42,15 @@ func TestBuildExcelAppliesWorklogGroupingRules(t *testing.T) {
 	if got := book.GetSheetList(); !equalStrings(got, wantSheets) {
 		t.Fatalf("sheet list = %v, want %v", got, wantSheets)
 	}
+	for _, sheet := range wantSheets {
+		view, err := book.GetSheetView(sheet, 0)
+		if err != nil {
+			t.Fatalf("read %s sheet view: %v", sheet, err)
+		}
+		if view.ShowGridLines == nil || *view.ShowGridLines {
+			t.Errorf("gridlines are visible on %s", sheet)
+		}
+	}
 
 	rows, err := book.GetRows("Andrea Faraone")
 	if err != nil {

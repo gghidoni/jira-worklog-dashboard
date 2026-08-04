@@ -67,6 +67,9 @@ func BuildExcel(opts Options, worklogs []Worklog) ([]byte, error) {
 	f := excelize.NewFile()
 	defer f.Close()
 	f.SetSheetName("Sheet1", summarySheet)
+	if err := hideGridlines(f, summarySheet); err != nil {
+		return nil, err
+	}
 
 	styles, err := newWorkbookStyles(f)
 	if err != nil {
@@ -79,6 +82,9 @@ func BuildExcel(opts Options, worklogs []Worklog) ([]byte, error) {
 		if _, err := f.NewSheet(user.SheetName); err != nil {
 			return nil, fmt.Errorf("create user sheet: %w", err)
 		}
+		if err := hideGridlines(f, user.SheetName); err != nil {
+			return nil, err
+		}
 		if err := buildUserSheet(f, styles, opts, user, months); err != nil {
 			return nil, err
 		}
@@ -90,6 +96,14 @@ func BuildExcel(opts Options, worklogs []Worklog) ([]byte, error) {
 		return nil, fmt.Errorf("write xlsx: %w", err)
 	}
 	return output.Bytes(), nil
+}
+
+func hideGridlines(f *excelize.File, sheet string) error {
+	showGridlines := false
+	if err := f.SetSheetView(sheet, 0, &excelize.ViewOptions{ShowGridLines: &showGridlines}); err != nil {
+		return fmt.Errorf("hide gridlines on %s: %w", sheet, err)
+	}
+	return nil
 }
 
 func groupByUser(worklogs []Worklog) []userGroup {
