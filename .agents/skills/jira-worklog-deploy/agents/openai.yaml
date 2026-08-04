@@ -1,0 +1,4 @@
+interface:
+  display_name: "Jira Worklog Deploy"
+  short_description: "Deploy sicuro della dashboard Jira Worklog"
+  default_prompt: "Use $jira-worklog-deploy per verificare e distribuire in sicurezza la dashboard Jira Worklog."
