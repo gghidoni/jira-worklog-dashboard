@@ -1,7 +1,9 @@
 package report
 
 import (
+	"archive/zip"
 	"bytes"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -80,6 +82,11 @@ func TestBuildExcelAppliesWorklogGroupingRules(t *testing.T) {
 			t.Errorf("summary does not contain %q", expected)
 		}
 	}
+
+	drawing := workbookFile(t, contents, "xl/drawings/drawing1.xml")
+	if !strings.Contains(drawing, "<xdr:from><xdr:col>0</xdr:col>") || !strings.Contains(drawing, "<xdr:row>13</xdr:row>") {
+		t.Errorf("summary chart is not anchored below the summary table: %s", drawing)
+	}
 }
 
 func TestBuildExcelUsesSafeUniqueUserSheetNames(t *testing.T) {
@@ -149,4 +156,32 @@ func equalStrings(left, right []string) bool {
 		}
 	}
 	return true
+}
+
+func workbookFile(t *testing.T, workbook []byte, name string) string {
+	t.Helper()
+	archive, err := zip.NewReader(bytes.NewReader(workbook), int64(len(workbook)))
+	if err != nil {
+		t.Fatalf("open workbook archive: %v", err)
+	}
+	for _, file := range archive.File {
+		if file.Name != name {
+			continue
+		}
+		reader, err := file.Open()
+		if err != nil {
+			t.Fatalf("open %s: %v", name, err)
+		}
+		contents, readErr := io.ReadAll(reader)
+		closeErr := reader.Close()
+		if readErr != nil {
+			t.Fatalf("read %s: %v", name, readErr)
+		}
+		if closeErr != nil {
+			t.Fatalf("close %s: %v", name, closeErr)
+		}
+		return string(contents)
+	}
+	t.Fatalf("workbook does not contain %s", name)
+	return ""
 }

@@ -208,7 +208,7 @@ func buildSummary(f *excelize.File, styles workbookStyles, opts Options, users [
 		return err
 	}
 	if len(users) > 0 && len(months) > 0 {
-		if err := addSummaryChart(f, users, months); err != nil {
+		if err := addSummaryChart(f, users, months, totalRow+3); err != nil {
 			return err
 		}
 	}
@@ -228,7 +228,7 @@ func setupSummaryColumns(f *excelize.File, monthCount int) error {
 	return nil
 }
 
-func addSummaryChart(f *excelize.File, users []userGroup, months []time.Time) error {
+func addSummaryChart(f *excelize.File, users []userGroup, months []time.Time, chartRow int) error {
 	firstRow := tableRow + 1
 	lastRow := tableRow + len(users)
 	series := make([]excelize.ChartSeries, 0, len(months))
@@ -241,7 +241,7 @@ func addSummaryChart(f *excelize.File, users []userGroup, months []time.Time) er
 		})
 	}
 	show := true
-	return f.AddChart(summarySheet, cell(len(months)+4, 5), &excelize.Chart{
+	return f.AddChart(summarySheet, cell(1, chartRow), &excelize.Chart{
 		Type:      excelize.Col,
 		Series:    series,
 		Format:    excelize.GraphicOptions{PrintObject: &show},
