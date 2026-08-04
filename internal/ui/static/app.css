@@ -36,10 +36,10 @@
   --subtask-row-hover: rgba(255, 255, 255, 0.028);
   --subtask-rail: rgba(242, 193, 78, 0.28);
   --issue-col: 11%;
-  --summary-col: 40%;
-  --type-col: 25%;
-  --estimate-col: 12%;
-  --total-col: 12%;
+  --summary-col: 55%;
+  --type-col: 19%;
+  --estimate-col: 7.5%;
+  --total-col: 7.5%;
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
 }

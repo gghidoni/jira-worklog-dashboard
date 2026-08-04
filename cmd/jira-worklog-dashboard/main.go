@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
 	"fmt"
@@ -575,9 +576,17 @@ func validateConfig(cfg Config) []string {
 }
 
 func parseTemplates() (*template.Template, error) {
+	appCSS, err := ui.FS.ReadFile("static/app.css")
+	if err != nil {
+		return nil, fmt.Errorf("read embedded stylesheet: %w", err)
+	}
+	appCSSDigest := sha256.Sum256(appCSS)
+	appCSSURL := fmt.Sprintf("/static/app.css?v=%x", appCSSDigest[:6])
+
 	funcMap := template.FuncMap{
-		"join": strings.Join,
-		"itoa": strconv.Itoa,
+		"appCSSURL": func() string { return appCSSURL },
+		"join":      strings.Join,
+		"itoa":      strconv.Itoa,
 		"cell": func(cells []Cell, i int) Cell {
 			if i < 0 || i >= len(cells) {
 				return Cell{}

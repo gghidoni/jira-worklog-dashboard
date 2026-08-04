@@ -124,6 +124,23 @@ func TestHandleExportExcelDownloadsWorkbookFromDashboardFilters(t *testing.T) {
 	}
 }
 
+func TestParseTemplatesFingerprintsStylesheet(t *testing.T) {
+	t.Parallel()
+
+	templates, err := parseTemplates()
+	if err != nil {
+		t.Fatalf("parseTemplates() error = %v", err)
+	}
+	var rendered bytes.Buffer
+	if err := templates.ExecuteTemplate(&rendered, "index.html", PageData{}); err != nil {
+		t.Fatalf("render template: %v", err)
+	}
+	markup := rendered.String()
+	if !strings.Contains(markup, `href="/static/app.css?v=`) {
+		t.Fatalf("stylesheet URL is not fingerprinted: %s", markup)
+	}
+}
+
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (fn roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
