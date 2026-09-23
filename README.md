@@ -2,7 +2,6 @@
 
 Minimal, Docker-friendly web dashboard that reads Jira Cloud worklogs and shows a filterable time summary table.
 
-![Dashboard](docs/screenshots/screenshot001.png)
 
 This project is intentionally opinionated:
 - no database
